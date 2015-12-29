@@ -61,7 +61,21 @@ public class ClassLoaderManager {
 	 * @param jarPath
 	 */
 	public String reloadJar(String jarPath) {
-		IClassLoader jarLoader = ClassLoaderFactory.createClassLoaer(this.getClassLoaderType(), jarPath);
+		IClassLoader jarLoader = ClassLoaderFactory.createClassLoaer(this.getClassLoaderType(), jarPath,ClassLoaderManager.class.getClassLoader());
+		jarPath = jarPath.replaceAll("\\\\", "/");
+
+		String jarName = jarPath.substring(jarPath.lastIndexOf("/") + 1);
+		loaderMap.put(jarName, jarLoader);
+		
+		return jarName;
+	}
+	/**
+	 * 加载或者重新加载jar
+	 * 
+	 * @param jarPath
+	 */
+	public String reloadJar(String jarPath, ClassLoader parent) {
+		IClassLoader jarLoader = ClassLoaderFactory.createClassLoaer(this.getClassLoaderType(), jarPath,parent);
 		jarPath = jarPath.replaceAll("\\\\", "/");
 
 		String jarName = jarPath.substring(jarPath.lastIndexOf("/") + 1);
@@ -142,6 +156,7 @@ public class ClassLoaderManager {
 	 */
 	public Object invokeMethod(String jarName, String packageClassName, String method, Class<?>[] paramClass, Object[] param) {
 		try {
+			logger.info("jarName:{},packageClassName:{},method:{},",jarName,packageClassName,method);
 			Object obj = getObject(jarName,packageClassName);
 
 			Method m = obj.getClass().getMethod(method, paramClass);

@@ -1,27 +1,27 @@
 package tank.classloader;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tank.api.IClassLoader;
-
 /**
  * @author tank
  * @date:2015年1月4日 下午4:11:21
- * @description:classloader动态加载管理类,共用共一个类加载器,注意区分ClassLoaderManager
+ * @description:系统级别的类加载器
  * @version :0.1
  */
 
-public class MyClassLoaderManager {
+public class SystemClassLoaderManager {
 
-	private Logger logger = LoggerFactory.getLogger(MyClassLoaderManager.class);
+	private Logger logger = LoggerFactory.getLogger(SystemClassLoaderManager.class);
 
-	private CustomerJarUrlLoader jarLoader;
+	private static URLClassLoader jarLoader;
 	/**
 	 * classloader类型
 	 */
@@ -35,20 +35,47 @@ public class MyClassLoaderManager {
 		this.classLoaderType = classLoaderType;
 	}
 
-	private MyClassLoaderManager() {
+	private SystemClassLoaderManager() {
 
 	}
 
-	private static MyClassLoaderManager manager;
+	private static SystemClassLoaderManager manager;
+
+	/**
+	 * 让系统级别的classloader去加载
+	 * 
+	 * @param url
+	 */
+	private void addUrl(URL url) {
+		try {
+			Method method = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
+			boolean accessible = method.isAccessible();
+			try {
+				if (accessible == false) {
+					method.setAccessible(true);
+				}
+				// 设置类加载器
+				URLClassLoader classLoader = jarLoader;// (URLClassLoader) ClassLoader.getSystemClassLoader();
+				// 将当前类路径加入到类加载器中
+				method.invoke(classLoader, url);
+			} finally {
+				method.setAccessible(accessible);
+			}
+		} catch (Exception e) {
+			logger.error("{}", e);
+		}
+	}
 
 	// private CustomerJarLoader jarLoader;
 
-	public static MyClassLoaderManager getInstance() {
+	public static SystemClassLoaderManager getInstance() {
 		if (manager == null) {
-			synchronized (MyClassLoaderManager.class) {
+			synchronized (SystemClassLoaderManager.class) {
 				if (manager == null) {
-					manager = new MyClassLoaderManager();
-					manager.setClassLoaderType(CustomerJarUrlLoader.class);
+					manager = new SystemClassLoaderManager();
+					manager.setClassLoaderType(SystemClassLoaderManager.class);
+					//jarLoader = (URLClassLoader) ClassLoader.getSystemClassLoader();
+					jarLoader = (URLClassLoader) SystemClassLoaderManager.class.getClassLoader();
 				}
 			}
 		}
@@ -56,26 +83,27 @@ public class MyClassLoaderManager {
 	}
 
 	public synchronized void reloadJar(String jarPath) {
-		if (jarLoader == null) {
-			jarLoader = (CustomerJarUrlLoader) ClassLoaderFactory.createClassLoaer(this.getClassLoaderType(), jarPath,MyClassLoaderManager.class.getClassLoader());
+		try {
+			File f = new File(jarPath);
+			URL url = f.toURI().toURL();
+			addUrl(url);
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+			logger.error("{}", e);
 		}
-
-		jarLoader.addJar(jarPath);
-	}
-	public synchronized void reloadJar(String jarPath,ClassLoader parent) {
-		if (jarLoader == null) {
-			jarLoader = (CustomerJarUrlLoader) ClassLoaderFactory.createClassLoaer(this.getClassLoaderType(), jarPath,parent);
-		}
-
-		jarLoader.addJar(jarPath);
 	}
 
 	public Class findClass(String packageClassName) {
 
-		if (jarLoader != null) {
-			return jarLoader.loadClass(packageClassName);
-		} else {
-			logger.error("没有找到{},相关加载类", packageClassName);
+		try {
+			if (jarLoader != null) {
+				return jarLoader.loadClass(packageClassName);
+			} else {
+				logger.error("没有找到{},相关加载类", packageClassName);
+			}
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+			logger.error("{}", e);
 		}
 
 		return null;

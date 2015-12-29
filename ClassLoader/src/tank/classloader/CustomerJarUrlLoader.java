@@ -40,6 +40,21 @@ public class CustomerJarUrlLoader implements IClassLoader {
 		}
 
 	}
+	public CustomerJarUrlLoader(String filePath,ClassLoader parent) {
+
+		// filePath 是jar的绝对路径
+		URL url;
+		try {
+			url = new URL("file:" + filePath);
+			// 里面是一个url的数组，可以同时加载多个
+			classLoader = new URLClassLoader(new URL[] { url },parent);
+
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+			logger.error("{}", e);
+		}
+
+	}
 
 	@Override
 	public Class<?> loadClass(String packageClassName) {
